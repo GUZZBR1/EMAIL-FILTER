@@ -1,0 +1,40 @@
+# Git Ignore - Email Filter
+
+# Dependency directories
+node_modules/
+__pycache__/
+.venv/
+venv/
+env/
+build/
+dist/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets and Environment
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# OMC Internal State (Ignore volatile data, keep specs)
+.omc/state/
+.omc/sessions/
+.omc/logs/
+.omx/
+.agents/
+.codex/
+
+# DO NOT ignore the official specification
+!docs/
+!README.md
+!.omc/specs/
