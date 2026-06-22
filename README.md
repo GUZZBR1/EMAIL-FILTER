@@ -4,7 +4,7 @@
 O Email Filter é uma aplicação web projetada para conectar múltiplas contas do Gmail e facilitar a localização de e-mails e anexos por meio de um sistema de filtros visuais avançados, eliminando a necessidade de dominar a sintaxe de busca do Gmail e oferecendo uma visão consolidada de arquivos.
 
 ## 📍 Estado Atual
-**Fundação do monorepo iniciada; aplicações ainda não inicializadas.**
+**Fundação do monorepo e backend mínimo inicializados.**
 A visão do produto, requisitos funcionais, não-funcionais e a arquitetura de alto nível foram definidos e consolidados.
 
 ## 📂 Estrutura do Monorepo
@@ -41,12 +41,13 @@ O plano de implementação técnica está disponível em:
 
 ---
 
-⚠️ **Atenção**: O desenvolvimento do código da aplicação ainda não foi iniciado. O projeto encontra-se rigorosamente na etapa de fundação e especificação.
+⚠️ **Atenção**: A implementação das funcionalidades de negócio ainda não foi iniciada. O projeto encontra-se na etapa de fundação técnica.
 
 ## 🗓️ Próximos Passos
 1. Planejamento técnico detalhado (Design de API e Banco de Dados).
 2. Implementação da fundação do monorepo (Concluído).
-3. Implementação do fluxo de autenticação e perfis.
-4. Integração com a Gmail API.
-5. Desenvolvimento do motor de busca e galeria de anexos.
-6. Estratégia de testes e deploy.
+3. Inicialização do backend mínimo (Concluído).
+4. Implementação do fluxo de autenticação e perfis.
+5. Integração com a Gmail API.
+6. Desenvolvimento do motor de busca e galeria de anexos.
+7. Estratégia de testes e deploy.
