@@ -8,22 +8,30 @@
 --      full_name = "Profile Validation A" and
 --      avatar_url = "https://example.invalid/original-avatar-a.png";
 --    User A must be created by the auth.users trigger.
--- 4. Replace the UUIDs below with those users' auth.users.id values.
--- 5. Run this file with psql as an administrative role that can inspect the
---    catalogs, SET ROLE to authenticated, and delete the disposable Auth users.
--- 6. The validation transaction is rolled back. On success, the final cleanup
---    deletes both disposable Auth users and their cascaded profiles.
+-- 4. Replace the two placeholder UUIDs below in your local execution copy
+--    only. Do not commit real Auth user IDs.
+-- 5. Run this entire file in one administrative session. The canonical
+--    automated mode is psql. The same plain SQL can also be pasted into the
+--    Supabase SQL Editor and run as one complete manual operation.
+-- 6. Do not reapply the migration before running this validation.
+-- 7. The validation ends with ROLLBACK. Remove both disposable Auth users
+--    manually after success or failure; their profiles are removed by cascade.
 --
 -- This script must never be run against production users.
 
-\set ON_ERROR_STOP on
-\set user_a '00000000-0000-0000-0000-000000000001'
-\set user_b '00000000-0000-0000-0000-000000000002'
-
 begin;
 
-select set_config('validation.user_a', :'user_a', true);
-select set_config('validation.user_b', :'user_b', true);
+select set_config(
+    'validation.user_a',
+    '00000000-0000-0000-0000-000000000001',
+    true
+);
+
+select set_config(
+    'validation.user_b',
+    '00000000-0000-0000-0000-000000000002',
+    true
+);
 
 create or replace function pg_temp.assert_true(
     condition boolean,
@@ -40,34 +48,58 @@ end;
 $$;
 
 select pg_temp.assert_true(
+    current_setting('validation.user_a')::uuid <>
+        '00000000-0000-0000-0000-000000000001'::uuid
+    and current_setting('validation.user_b')::uuid <>
+        '00000000-0000-0000-0000-000000000002'::uuid
+    and current_setting('validation.user_a')::uuid <>
+        current_setting('validation.user_b')::uuid,
+    'replace placeholder UUIDs with two distinct disposable Auth user IDs'
+);
+
+select pg_temp.assert_true(
+    exists (
+        select 1
+        from auth.users
+        where id = current_setting('validation.user_a')::uuid
+    )
+    and exists (
+        select 1
+        from auth.users
+        where id = current_setting('validation.user_b')::uuid
+    ),
+    'both configured disposable Auth users must exist'
+);
+
+select pg_temp.assert_true(
     (select count(*) = 1
      from public.profiles
-     where auth_user_id = :'user_a'::uuid),
+     where auth_user_id = current_setting('validation.user_a')::uuid),
     'creating user A must create exactly one profile'
 );
 
 select pg_temp.assert_true(
     (select count(*) = 1
      from public.profiles
-     where auth_user_id = :'user_b'::uuid),
+     where auth_user_id = current_setting('validation.user_b')::uuid),
     'creating user B without metadata must create exactly one profile'
 );
 
 select pg_temp.assert_true(
-    (select auth_user_id = :'user_a'::uuid
+    (select auth_user_id = current_setting('validation.user_a')::uuid
             and id <> auth_user_id
             and display_name = 'Profile Validation A'
             and avatar_url =
                 'https://example.invalid/original-avatar-a.png'
      from public.profiles
-     where auth_user_id = :'user_a'::uuid),
+     where auth_user_id = current_setting('validation.user_a')::uuid),
     'profile must keep the auth link, independent id, name, and avatar metadata'
 );
 
 select pg_temp.assert_true(
     (select display_name is null and avatar_url is null
      from public.profiles
-     where auth_user_id = :'user_b'::uuid),
+     where auth_user_id = current_setting('validation.user_b')::uuid),
     'missing metadata must produce nullable profile fields'
 );
 
@@ -390,23 +422,58 @@ select
         nullif(pg_catalog.btrim(users.raw_user_meta_data ->> 'picture'), '')
     )
 from auth.users as users
-where users.id in (:'user_a'::uuid, :'user_b'::uuid)
+where users.id in (
+    current_setting('validation.user_a')::uuid,
+    current_setting('validation.user_b')::uuid
+)
 on conflict (auth_user_id) do nothing;
 
 select pg_temp.assert_true(
     (select count(*) = 2
      from public.profiles
-     where auth_user_id in (:'user_a'::uuid, :'user_b'::uuid)),
+     where auth_user_id in (
+         current_setting('validation.user_a')::uuid,
+         current_setting('validation.user_b')::uuid
+     )),
     'rerunning profile reconciliation must remain idempotent'
 );
 
-create temporary table profile_validation_snapshot as
-select auth_user_id, id, created_at, updated_at
-from public.profiles
-where auth_user_id in (:'user_a'::uuid, :'user_b'::uuid);
+select set_config(
+    'validation.profile_id',
+    (
+        select id::text
+        from public.profiles
+        where auth_user_id = current_setting('validation.user_a')::uuid
+    ),
+    true
+);
+
+select set_config(
+    'validation.created_at',
+    (
+        select created_at::text
+        from public.profiles
+        where auth_user_id = current_setting('validation.user_a')::uuid
+    ),
+    true
+);
+
+select set_config(
+    'validation.updated_at',
+    (
+        select updated_at::text
+        from public.profiles
+        where auth_user_id = current_setting('validation.user_a')::uuid
+    ),
+    true
+);
 
 set local role authenticated;
-select set_config('request.jwt.claim.sub', :'user_a', true);
+select set_config(
+    'request.jwt.claim.sub',
+    current_setting('validation.user_a'),
+    true
+);
 
 select pg_temp.assert_true(
     (select count(*) = 1 from public.profiles),
@@ -416,14 +483,14 @@ select pg_temp.assert_true(
 select pg_temp.assert_true(
     (select count(*) = 0
      from public.profiles
-     where auth_user_id = :'user_b'::uuid),
+     where auth_user_id = current_setting('validation.user_b')::uuid),
     'user A must not read user B profile'
 );
 
 update public.profiles
 set display_name = 'Profile validation A',
     avatar_url = 'https://example.invalid/avatar-a.png'
-where auth_user_id = :'user_a'::uuid;
+where auth_user_id = current_setting('validation.user_a')::uuid;
 
 do $$
 declare
@@ -493,22 +560,52 @@ begin
     exception
         when insufficient_privilege then null;
     end;
+
+    begin
+        perform public.create_profile_for_auth_user();
+        raise exception 'validation failed: authenticated user called profile creation function';
+    exception
+        when insufficient_privilege then null;
+    end;
+
+    begin
+        perform public.set_profile_updated_at();
+        raise exception 'validation failed: authenticated user called updated_at function';
+    exception
+        when insufficient_privilege then null;
+    end;
 end;
 $$;
 
 reset role;
 
 select pg_temp.assert_true(
-    (select p.display_name = 'Profile validation A'
-            and p.avatar_url = 'https://example.invalid/avatar-a.png'
-            and p.id = s.id
-            and p.created_at = s.created_at
-            and p.updated_at > s.updated_at
-     from public.profiles p
-     join profile_validation_snapshot s using (auth_user_id)
-     where p.auth_user_id = :'user_a'::uuid),
+    (select display_name = 'Profile validation A'
+            and avatar_url = 'https://example.invalid/avatar-a.png'
+            and id = current_setting('validation.profile_id')::uuid
+            and created_at =
+                current_setting('validation.created_at')::timestamptz
+            and updated_at >
+                current_setting('validation.updated_at')::timestamptz
+     from public.profiles
+     where auth_user_id = current_setting('validation.user_a')::uuid),
     'valid updates must preserve immutable fields and advance updated_at'
 );
+
+set local role anon;
+
+do $$
+begin
+    begin
+        perform count(*) from public.profiles;
+        raise exception 'validation failed: anon read profiles';
+    exception
+        when insufficient_privilege then null;
+    end;
+end;
+$$;
+
+reset role;
 
 do $$
 begin
@@ -525,23 +622,22 @@ $$;
 select pg_temp.assert_true(
     (select count(*) = 1
      from public.profiles
-     where auth_user_id = :'user_a'::uuid),
+     where auth_user_id = current_setting('validation.user_a')::uuid),
     'an idempotent duplicate attempt must not create another profile'
 );
 
 delete from auth.users
-where id = :'user_b'::uuid;
+where id = current_setting('validation.user_b')::uuid;
 
 select pg_temp.assert_true(
     not exists (
         select 1
         from public.profiles
-        where auth_user_id = :'user_b'::uuid
+        where auth_user_id = current_setting('validation.user_b')::uuid
     ),
     'deleting auth user B must cascade to its profile'
 );
 
-rollback;
+select 'runtime validation passed' as result;
 
-delete from auth.users
-where id in (:'user_a'::uuid, :'user_b'::uuid);
+rollback;

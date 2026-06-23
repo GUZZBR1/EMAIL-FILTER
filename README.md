@@ -9,9 +9,11 @@ identidade PostgreSQL/Supabase versionada.**
 A visão do produto, requisitos funcionais, não-funcionais e a arquitetura de alto nível foram definidos e consolidados.
 
 A migration de `public.profiles`, criação automática de perfil, RLS e
-privilégios mínimos está implementada no repositório, mas ainda não foi
-aplicada a um projeto Supabase remoto. A validação de banco permanece pendente
-de um ambiente PostgreSQL/Supabase local.
+privilégios mínimos está implementada no repositório e foi validada em um
+projeto Supabase descartável de desenvolvimento/staging. A validação principal
+de schema, RLS, privilégios, triggers, backfill e cascade passou; o cenário de
+metadata válida ainda requer criação complementar de usuário Auth com
+`raw_user_meta_data` real.
 
 ## 📂 Estrutura do Monorepo
 O projeto utiliza uma estrutura modular para separar as responsabilidades de execução e contratos:
@@ -53,8 +55,8 @@ O plano de implementação técnica está disponível em:
 1. Planejamento técnico detalhado (Design de API e Banco de Dados).
 2. Implementação da fundação do monorepo (Concluído).
 3. Inicialização do backend mínimo (Concluído).
-4. Aplicação e validação local da migration de perfis; implementação futura do
-   fluxo de autenticação.
+4. Validação complementar de metadata real para a migration de perfis;
+   implementação futura do fluxo de autenticação.
 5. Integração com a Gmail API.
 6. Desenvolvimento do motor de busca e galeria de anexos.
 7. Estratégia de testes e deploy.

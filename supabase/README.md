@@ -3,8 +3,9 @@
 - **Responsibility**: Schema management and Row Level Security (RLS).
 - **Planned Tech**: PostgreSQL via Supabase.
 - **Out of Scope**: Application business logic.
-- **Status**: Initial identity foundation implemented locally; the migration has not
-  been applied to a remote Supabase project.
+- **Status**: Initial identity foundation implemented and validated in a
+  disposable development/staging Supabase project. Do not reapply the migration
+  in a database where it has already succeeded.
 
 ## Identity foundation
 
@@ -41,11 +42,38 @@ when API integration is implemented.
 
 The manual validation script is
 [`tests/profiles_rls_validation.sql`](tests/profiles_rls_validation.sql). Run it
-only against a disposable local Supabase database after creating the two test
-users described in the file. The script requires an administrative database
-session and removes both disposable users after a successful validation.
-If an assertion stops execution, reset the disposable database or remove the
-two fixtures manually before retrying.
-Database execution is pending because this environment does not provide
-Docker, Supabase CLI, or a local PostgreSQL instance. No remote migration was
-applied.
+only against a disposable local or staging Supabase database after creating the
+two test users described in the file. The script is plain SQL and can be run as
+one complete operation in `psql` or as a manual Supabase SQL Editor paste after
+replacing the placeholder Auth user UUIDs in the local execution copy. It
+requires an administrative database session, ends with `ROLLBACK`, and does not
+reapply the migration.
+
+The main runtime validation passed in a non-production staging project for
+schema, constraints, backfill, profile creation, missing metadata, `updated_at`,
+RLS, policies, grants, immutable fields, `anon` blocking, function execution
+blocking, idempotent backfill, and cascade deletion. The manual Dashboard user
+creation flow did not persist user metadata, so valid metadata fallback still
+requires a complementary Auth signup/Admin API validation that writes
+`raw_user_meta_data`.
+Supabase client APIs call this input `user_metadata` or `options.data`; the
+database stores it as `auth.users.raw_user_meta_data`.
+
+Remove the two disposable Auth users manually after validation; their profiles
+are removed by cascade. If an assertion stops execution, reset the disposable
+database or remove the fixtures manually before retrying.
+
+For metadata validation, prefer an official Supabase Auth flow that creates a
+disposable user after the migration with `user_metadata`:
+
+```json
+{
+  "full_name": "Profile Validation Metadata",
+  "avatar_url": "https://example.invalid/profile-validation.png"
+}
+```
+
+Do not store service role keys, anon keys, URLs, e-mails, UUIDs, passwords, or
+connection strings in this repository or in shell history. If using an Admin API
+helper, run it as a temporary local script outside the repository and enter any
+key through a hidden prompt.

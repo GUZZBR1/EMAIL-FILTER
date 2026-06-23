@@ -1,0 +1,101 @@
+# Supabase validation scripts
+
+This directory contains manual validation scripts. They are not production
+migrations and must only run against disposable local or staging projects.
+
+## `profiles_rls_validation.sql`
+
+Validates the `public.profiles` migration after it has been applied once.
+Do not run the migration again in the same database.
+
+Required fixtures:
+
+1. Before applying the migration, create disposable user B without metadata.
+   The migration backfill must create this user's profile.
+2. Apply `supabase/migrations/20260623135819_create_profiles.sql`.
+3. After applying the migration, create disposable user A through Supabase Auth
+   with metadata equivalent to:
+
+   ```json
+   {
+     "full_name": "Profile Validation A",
+     "avatar_url": "https://example.invalid/original-avatar-a.png"
+   }
+   ```
+
+The script contains placeholder UUIDs for both users. Replace those placeholder
+values only in your local execution copy or SQL Editor paste. Do not commit real
+Auth user IDs.
+
+### Mode 1: `psql`
+
+Run the whole file in one administrative session after replacing the two
+placeholder UUIDs in a local, untracked execution copy:
+
+```sh
+cp supabase/tests/profiles_rls_validation.sql /tmp/profiles_rls_validation.sql
+# Edit only /tmp/profiles_rls_validation.sql to replace the two UUID placeholders.
+psql -v ON_ERROR_STOP=1 -f /tmp/profiles_rls_validation.sql
+```
+
+Do not put connection strings or passwords in repository files. Prefer a secure
+interactive prompt or your local password manager.
+
+### Mode 2: Supabase SQL Editor
+
+1. Confirm that the selected project is disposable and not production.
+2. Confirm that the migration has already succeeded.
+3. Open the SQL Editor.
+4. Paste the complete `profiles_rls_validation.sql` file.
+5. Replace the two placeholder UUIDs in the pasted SQL with the disposable
+   Auth user IDs.
+6. Execute the pasted SQL once as a single manual operation.
+
+The script ends with `ROLLBACK`, so its profile updates and cascade check are
+not persisted. Remove the two disposable Auth users manually after success or
+failure; their profiles are removed by `ON DELETE CASCADE`.
+
+## Complementary metadata validation
+
+Dashboard-created users may not persist the metadata fields required by this
+test. To validate the metadata branch, create the disposable user through an
+official Supabase Auth flow that writes `raw_user_meta_data`, such as Auth
+signup or the server-side Admin API `createUser` operation.
+In Supabase client APIs this input is named `user_metadata` or
+`options.data`; in PostgreSQL it is stored as `auth.users.raw_user_meta_data`,
+which is what the migration reads.
+
+Safety requirements:
+
+- Use only a disposable staging project.
+- Do not paste keys, e-mails, UUIDs, passwords, project URLs, or connection
+  strings into chat, documentation, Git, or shell history.
+- If an admin helper is needed, run a temporary script outside this repository
+  and enter any key through a hidden prompt.
+- Do not use direct SQL inserts into `auth.users` as a substitute for Auth
+  fixture creation.
+
+After creating the metadata fixture, validate with a read-only query that
+returns only booleans or counts:
+
+```sql
+select
+  count(*) = 1 as exactly_one_matching_profile,
+  coalesce(
+    bool_and(display_name = 'Profile Validation Metadata'),
+    false
+  ) as display_name_ok,
+  coalesce(
+    bool_and(
+      avatar_url = 'https://example.invalid/profile-validation.png'
+    ),
+    false
+  ) as avatar_url_ok,
+  coalesce(bool_and(id <> auth_user_id), false) as internal_id_is_independent
+from public.profiles
+where display_name = 'Profile Validation Metadata'
+  and avatar_url = 'https://example.invalid/profile-validation.png';
+```
+
+Remove the disposable metadata Auth user after the check. Its profile must be
+removed by cascade.
