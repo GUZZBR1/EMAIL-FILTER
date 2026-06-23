@@ -38,3 +38,6 @@ Thumbs.db
 !docs/
 !README.md
 !.omc/specs/
+
+# OMC local state accidentally created inside applications
+apps/**/.omc/
