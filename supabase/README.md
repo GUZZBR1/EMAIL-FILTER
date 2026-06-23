@@ -31,6 +31,9 @@ RLS permits authenticated users to select and update only their own row.
 Table privileges restrict updates to `display_name` and `avatar_url`; `id`,
 `auth_user_id`, and `created_at` are immutable to clients, while `updated_at`
 is maintained by a database trigger. The `anon` role receives no table access.
+RLS is intentionally enabled without `FORCE ROW LEVEL SECURITY`: client roles
+are neither table owners nor `BYPASSRLS` roles, while privileged database
+maintenance remains an explicit administrative boundary.
 Backend code must still validate authenticated identity and resource ownership
 when API integration is implemented.
 
@@ -39,6 +42,10 @@ when API integration is implemented.
 The manual validation script is
 [`tests/profiles_rls_validation.sql`](tests/profiles_rls_validation.sql). Run it
 only against a disposable local Supabase database after creating the two test
-users described in the file. Database execution is pending because this
-environment does not provide Docker, Supabase CLI, or a local PostgreSQL
-instance. No remote migration was applied.
+users described in the file. The script requires an administrative database
+session and removes both disposable users after a successful validation.
+If an assertion stops execution, reset the disposable database or remove the
+two fixtures manually before retrying.
+Database execution is pending because this environment does not provide
+Docker, Supabase CLI, or a local PostgreSQL instance. No remote migration was
+applied.

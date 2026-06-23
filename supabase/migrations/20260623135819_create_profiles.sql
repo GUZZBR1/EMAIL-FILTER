@@ -13,6 +13,8 @@ create table public.profiles (
         on delete cascade
 );
 
+alter table public.profiles owner to postgres;
+
 create function public.set_profile_updated_at()
 returns trigger
 language plpgsql

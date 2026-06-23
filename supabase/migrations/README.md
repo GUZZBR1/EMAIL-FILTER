@@ -23,8 +23,13 @@ When a disposable local Supabase database is available:
 2. Before applying the profile migration, create disposable user B as
    described in `supabase/tests/profiles_rls_validation.sql`.
 3. Apply the local database migrations, then create disposable user A.
-4. Execute `supabase/tests/profiles_rls_validation.sql` with `psql`.
-5. Confirm every assertion succeeds and the final transaction rolls back.
+4. Using an administrative database session, execute
+   `supabase/tests/profiles_rls_validation.sql` with `psql`.
+5. Confirm every assertion succeeds, the validation transaction rolls back,
+   and the final cleanup removes both disposable Auth users.
+
+If validation stops on an assertion, reset the disposable database or remove
+the two test users manually before retrying.
 
 Do not use the validation script against production users or treat it as a
 migration.

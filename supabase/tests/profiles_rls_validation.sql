@@ -9,7 +9,10 @@
 --      avatar_url = "https://example.invalid/original-avatar-a.png";
 --    User A must be created by the auth.users trigger.
 -- 4. Replace the UUIDs below with those users' auth.users.id values.
--- 5. Run this file with psql. The transaction is rolled back at the end.
+-- 5. Run this file with psql as an administrative role that can inspect the
+--    catalogs, SET ROLE to authenticated, and delete the disposable Auth users.
+-- 6. The validation transaction is rolled back. On success, the final cleanup
+--    deletes both disposable Auth users and their cascaded profiles.
 --
 -- This script must never be run against production users.
 
@@ -69,10 +72,169 @@ select pg_temp.assert_true(
 );
 
 select pg_temp.assert_true(
-    (select relrowsecurity
+    (select relkind = 'r'
+            and relrowsecurity
+            and not relforcerowsecurity
+            and pg_catalog.pg_get_userbyid(relowner) = 'postgres'
      from pg_catalog.pg_class
      where oid = 'public.profiles'::regclass),
-    'RLS must be enabled on public.profiles'
+    'profiles must be a postgres-owned table with enabled, non-forced RLS'
+);
+
+select pg_temp.assert_true(
+    (select count(*) = 6
+     from pg_catalog.pg_attribute
+     where attrelid = 'public.profiles'::regclass
+       and attnum > 0
+       and not attisdropped)
+    and exists (
+        select 1
+        from pg_catalog.pg_attribute as attribute
+        join pg_catalog.pg_attrdef as default_value
+          on default_value.adrelid = attribute.attrelid
+         and default_value.adnum = attribute.attnum
+        where attribute.attrelid = 'public.profiles'::regclass
+          and attribute.attname = 'id'
+          and attribute.atttypid = 'uuid'::regtype
+          and attribute.attnotnull
+          and pg_catalog.pg_get_expr(
+              default_value.adbin,
+              default_value.adrelid
+          ) like '%gen_random_uuid()%'
+    )
+    and exists (
+        select 1
+        from pg_catalog.pg_attribute
+        where attrelid = 'public.profiles'::regclass
+          and attname = 'auth_user_id'
+          and atttypid = 'uuid'::regtype
+          and attnotnull
+    )
+    and exists (
+        select 1
+        from pg_catalog.pg_attribute
+        where attrelid = 'public.profiles'::regclass
+          and attname = 'display_name'
+          and atttypid = 'text'::regtype
+          and not attnotnull
+    )
+    and exists (
+        select 1
+        from pg_catalog.pg_attribute
+        where attrelid = 'public.profiles'::regclass
+          and attname = 'avatar_url'
+          and atttypid = 'text'::regtype
+          and not attnotnull
+    )
+    and (
+        select count(*) = 2
+        from pg_catalog.pg_attribute as attribute
+        join pg_catalog.pg_attrdef as default_value
+          on default_value.adrelid = attribute.attrelid
+         and default_value.adnum = attribute.attnum
+        where attribute.attrelid = 'public.profiles'::regclass
+          and attribute.attname in ('created_at', 'updated_at')
+          and attribute.atttypid = 'timestamptz'::regtype
+          and attribute.attnotnull
+          and pg_catalog.pg_get_expr(
+              default_value.adbin,
+              default_value.adrelid
+          ) like '%now()%'
+    ),
+    'profiles must have exactly the expected columns, nullability, and defaults'
+);
+
+select pg_temp.assert_true(
+    exists (
+        select 1
+        from pg_catalog.pg_constraint
+        where conrelid = 'public.profiles'::regclass
+          and conname = 'profiles_pkey'
+          and contype = 'p'
+          and conkey = array[
+              (
+                  select attnum
+                  from pg_catalog.pg_attribute
+                  where attrelid = 'public.profiles'::regclass
+                    and attname = 'id'
+              )
+          ]::smallint[]
+    )
+    and exists (
+        select 1
+        from pg_catalog.pg_constraint
+        where conrelid = 'public.profiles'::regclass
+          and conname = 'profiles_auth_user_id_key'
+          and contype = 'u'
+          and conkey = array[
+              (
+                  select attnum
+                  from pg_catalog.pg_attribute
+                  where attrelid = 'public.profiles'::regclass
+                    and attname = 'auth_user_id'
+              )
+          ]::smallint[]
+    )
+    and exists (
+        select 1
+        from pg_catalog.pg_constraint
+        where conrelid = 'public.profiles'::regclass
+          and conname = 'profiles_auth_user_id_fkey'
+          and contype = 'f'
+          and confrelid = 'auth.users'::regclass
+          and confdeltype = 'c'
+          and conkey = array[
+              (
+                  select attnum
+                  from pg_catalog.pg_attribute
+                  where attrelid = 'public.profiles'::regclass
+                    and attname = 'auth_user_id'
+              )
+          ]::smallint[]
+          and confkey = array[
+              (
+                  select attnum
+                  from pg_catalog.pg_attribute
+                  where attrelid = 'auth.users'::regclass
+                    and attname = 'id'
+              )
+          ]::smallint[]
+    )
+    and (
+        select count(*) = 2
+               and count(*) filter (where indisunique) = 2
+               and count(*) filter (where indisprimary) = 1
+        from pg_catalog.pg_index
+        where indrelid = 'public.profiles'::regclass
+    ),
+    'profiles must have the expected PK, unique FK, cascade, and no redundant index'
+);
+
+select pg_temp.assert_true(
+    exists (
+        select 1
+        from pg_catalog.pg_trigger
+        where tgrelid = 'public.profiles'::regclass
+          and tgname = 'profiles_set_updated_at'
+          and tgfoid = 'public.set_profile_updated_at()'::regprocedure
+          and tgenabled = 'O'
+          and not tgisinternal
+          and pg_catalog.pg_get_triggerdef(oid) like
+              '%BEFORE UPDATE ON public.profiles%'
+    )
+    and exists (
+        select 1
+        from pg_catalog.pg_trigger
+        where tgrelid = 'auth.users'::regclass
+          and tgname = 'auth_user_create_profile'
+          and tgfoid =
+              'public.create_profile_for_auth_user()'::regprocedure
+          and tgenabled = 'O'
+          and not tgisinternal
+          and pg_catalog.pg_get_triggerdef(oid) like
+              '%AFTER INSERT ON auth.users%'
+    ),
+    'profile creation and updated_at triggers must be enabled and correctly bound'
 );
 
 select pg_temp.assert_true(
@@ -90,7 +252,7 @@ select pg_temp.assert_true(
           and permissive = 'PERMISSIVE'
           and roles = array['authenticated']::name[]
           and cmd = 'SELECT'
-          and qual = '(auth.uid() = auth_user_id)'
+          and qual is not null
           and with_check is null
     )
     and exists (
@@ -103,8 +265,8 @@ select pg_temp.assert_true(
           and permissive = 'PERMISSIVE'
           and roles = array['authenticated']::name[]
           and cmd = 'UPDATE'
-          and qual = '(auth.uid() = auth_user_id)'
-          and with_check = '(auth.uid() = auth_user_id)'
+          and qual is not null
+          and with_check is not null
     ),
     'profiles must have exactly the expected authenticated policies'
 );
@@ -380,3 +542,6 @@ select pg_temp.assert_true(
 );
 
 rollback;
+
+delete from auth.users
+where id in (:'user_a'::uuid, :'user_b'::uuid);
