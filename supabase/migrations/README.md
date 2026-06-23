@@ -4,7 +4,9 @@
 - **Planned Tech**: SQL.
 - **Status**: The initial profile and RLS migration is versioned locally and
   has been applied and validated in a disposable development/staging Supabase
-  project. It must not be reapplied in the same database.
+  project. The Gmail connection migration is versioned locally and pending
+  runtime application/validation in a disposable database. A migration must not
+  be reapplied in the same database after it has succeeded.
 
 ## Current migrations
 
@@ -12,6 +14,12 @@
   relationship to `auth.users`, automatic profile creation, automatic
   backfill for existing Auth users, automatic `updated_at`, initial RLS
   policies, and least-privilege grants.
+- `20260623225810_create_gmail_connections.sql`: creates
+  `public.gmail_connections`, its relationship to `public.profiles`, Gmail
+  account identity by Google `sub`, connection states, a technical active
+  connection limit trigger with `app.gmail_connections_active_limit` fallback
+  to 5, automatic `updated_at`, read-only RLS for owning authenticated users,
+  and least-privilege grants. It intentionally does not create token columns.
 
 Migrations in this directory are production schema changes. Manual validation
 scripts belong in `supabase/tests/` and must not be moved into this directory.
@@ -41,9 +49,11 @@ the two test users manually before retrying.
 Do not use the validation script against production users or treat it as a
 migration.
 
-The main validation has passed in staging. The valid-metadata branch remains a
-separate complementary check because Dashboard-created users did not persist
-the metadata values; use an official Supabase Auth signup or Admin API flow
-that writes API-side `user_metadata`/`options.data`, stored in PostgreSQL as
-`auth.users.raw_user_meta_data`, without storing keys or credentials in the
-repository.
+The profile validation has passed in staging, including valid metadata created
+through the official Supabase Auth Admin API flow.
+
+The Gmail connection validation is documented in
+`supabase/tests/gmail_connections_rls_validation.sql`. It requires two
+disposable Auth users with existing profiles, the profile migration, and the
+Gmail connection migration applied once in a disposable database. It has not
+been executed yet.

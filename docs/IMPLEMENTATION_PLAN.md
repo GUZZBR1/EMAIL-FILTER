@@ -84,8 +84,8 @@ Email-Filter/
 **Objective**: Implement the core user profile and secure data isolation.
 **Order**: Must precede connectivity.
 **Deliverables**: DB Schema, RLS policies, Internal Profile logic.
-- **T2.1**: Create `User Profile` table and initial migrations. [Codex]
-- **T2.2**: Implement Supabase Row Level Security (RLS) for profile isolation. [Codex]
+- **T2.1**: Create `User Profile` table and initial migrations. [Codex] (Implemented and validated in disposable staging.)
+- **T2.2**: Implement Supabase Row Level Security (RLS) for profile isolation. [Codex] (Implemented and validated in disposable staging.)
 - **T2.3**: Create internal API endpoints for profile management (CRUD). [Gemma]
 - **T2.4**: Implement a basic "Health Check" endpoint for the backend. [Gemma]
 - **T2.5**: Implement backend authorization middleware to verify User Profile ownership on every request. [Codex]
@@ -95,7 +95,7 @@ Email-Filter/
 **Order**: Prerequisite for any search functionality.
 **Deliverables**: OAuth flow, token encryption, account management.
 - **T3.1**: Implement Google OAuth 2.0 authorization flow (Frontend $\rightarrow$ Backend). [Codex]
-- **T3.2**: Create `Gmail Connection` table and state machine (`connected`, `revoked`, etc). [Codex]
+- **T3.2**: Create `Gmail Connection` table and state machine (`connected`, `revoked`, etc). [Codex] (Schema and RLS versioned locally; runtime validation pending.)
 - **T3.3**: Implement symmetric encryption for `access_token` and `refresh_token`. [Codex]
 - **T3.4**: Implement token refresh logic and automatic renewal. [Codex]
 - **T3.5**: Create endpoint to link/unlink Gmail accounts. [Gemma]

@@ -99,3 +99,63 @@ where display_name = 'Profile Validation Metadata'
 
 Remove the disposable metadata Auth user after the check. Its profile must be
 removed by cascade.
+
+## `gmail_connections_rls_validation.sql`
+
+Validates the `public.gmail_connections` migration after both database
+migrations have been applied once. Do not run either migration again in the
+same database.
+
+Required fixtures:
+
+1. Apply `supabase/migrations/20260623135819_create_profiles.sql`.
+2. Apply `supabase/migrations/20260623225810_create_gmail_connections.sql`.
+3. Create two disposable Supabase Auth users through an official Auth flow.
+   Their `public.profiles` rows must exist before executing the script.
+
+The script contains placeholder UUIDs for both Auth users. Replace those
+placeholder values only in your local execution copy or SQL Editor paste. Do
+not commit real Auth user IDs.
+
+The script validates:
+
+- ownership resolution through
+  `auth.uid() -> profiles.auth_user_id -> gmail_connections.profile_id`;
+- authenticated users reading only their own Gmail connections;
+- no `anon` access;
+- no direct client `INSERT`, `UPDATE`, or `DELETE`;
+- uniqueness of `(profile_id, google_subject)`;
+- different Google accounts coexisting in one profile;
+- invalid states being rejected;
+- FK and cascade behavior;
+- automatic `updated_at`;
+- the initial five-active-connections technical limit;
+- rollback of all Gmail connection fixtures.
+
+### Mode 1: `psql`
+
+Run the whole file in one administrative session after replacing the two
+placeholder UUIDs in a local, untracked execution copy:
+
+```sh
+cp supabase/tests/gmail_connections_rls_validation.sql \
+  /tmp/gmail_connections_rls_validation.sql
+# Edit only /tmp/gmail_connections_rls_validation.sql to replace placeholders.
+psql -v ON_ERROR_STOP=1 -f /tmp/gmail_connections_rls_validation.sql
+```
+
+Do not put connection strings, service keys, or passwords in repository files.
+
+### Mode 2: Supabase SQL Editor
+
+1. Confirm that the selected project is disposable and not production.
+2. Confirm that both migrations have already succeeded.
+3. Open the SQL Editor.
+4. Paste the complete `gmail_connections_rls_validation.sql` file.
+5. Replace the two placeholder UUIDs in the pasted SQL with the disposable
+   Auth user IDs.
+6. Execute the pasted SQL once as a single manual operation.
+
+The script ends with `ROLLBACK`, so all Gmail connection fixtures and the
+profile cascade check are reverted. Remove the two disposable Auth users
+manually after success or failure; their profiles are removed by cascade.
