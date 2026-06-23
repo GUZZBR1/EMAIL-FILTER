@@ -4,8 +4,14 @@
 O Email Filter é uma aplicação web projetada para conectar múltiplas contas do Gmail e facilitar a localização de e-mails e anexos por meio de um sistema de filtros visuais avançados, eliminando a necessidade de dominar a sintaxe de busca do Gmail e oferecendo uma visão consolidada de arquivos.
 
 ## 📍 Estado Atual
-**Fundação do monorepo e backend mínimo inicializados.**
+**Fundação do monorepo, backend e frontend mínimos inicializados; base local de
+identidade PostgreSQL/Supabase versionada.**
 A visão do produto, requisitos funcionais, não-funcionais e a arquitetura de alto nível foram definidos e consolidados.
+
+A migration de `public.profiles`, criação automática de perfil, RLS e
+privilégios mínimos está implementada no repositório, mas ainda não foi
+aplicada a um projeto Supabase remoto. A validação de banco permanece pendente
+de um ambiente PostgreSQL/Supabase local.
 
 ## 📂 Estrutura do Monorepo
 O projeto utiliza uma estrutura modular para separar as responsabilidades de execução e contratos:
@@ -47,7 +53,8 @@ O plano de implementação técnica está disponível em:
 1. Planejamento técnico detalhado (Design de API e Banco de Dados).
 2. Implementação da fundação do monorepo (Concluído).
 3. Inicialização do backend mínimo (Concluído).
-4. Implementação do fluxo de autenticação e perfis.
+4. Aplicação e validação local da migration de perfis; implementação futura do
+   fluxo de autenticação.
 5. Integração com a Gmail API.
 6. Desenvolvimento do motor de busca e galeria de anexos.
 7. Estratégia de testes e deploy.
