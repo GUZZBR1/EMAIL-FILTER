@@ -3,10 +3,10 @@
 - **Responsibility**: Schema management and Row Level Security (RLS).
 - **Planned Tech**: PostgreSQL via Supabase.
 - **Out of Scope**: Application business logic.
-- **Status**: Initial identity foundation implemented and validated in a
-  disposable development/staging Supabase project. The Gmail connection schema
-  is versioned locally and has not been applied remotely yet. Do not reapply a
-  migration in a database where it has already succeeded.
+- **Status**: Initial identity foundation and Gmail connection schema
+  implemented and validated in a disposable development/staging Supabase
+  project. Do not reapply a migration in a database where it has already
+  succeeded.
 
 ## Identity foundation
 
@@ -137,5 +137,6 @@ key through a hidden prompt.
 
 The Gmail connection validation script is
 [`tests/gmail_connections_rls_validation.sql`](tests/gmail_connections_rls_validation.sql).
-It is pending execution until the Gmail connection migration is applied in a
-disposable database.
+It has passed in a disposable staging project for schema, RLS, grants and
+revokes, triggers, active connection limits, cascade behavior, and isolation
+between users.

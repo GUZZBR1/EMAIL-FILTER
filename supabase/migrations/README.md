@@ -2,11 +2,10 @@
 - **Objective**: Version-controlled schema changes.
 - **Responsibility**: SQL scripts for creating and altering tables, views, and RLS policies.
 - **Planned Tech**: SQL.
-- **Status**: The initial profile and RLS migration is versioned locally and
-  has been applied and validated in a disposable development/staging Supabase
-  project. The Gmail connection migration is versioned locally and pending
-  runtime application/validation in a disposable database. A migration must not
-  be reapplied in the same database after it has succeeded.
+- **Status**: The initial profile/RLS migration and Gmail connection migration
+  are versioned locally and have been applied and validated in a disposable
+  development/staging Supabase project. A migration must not be reapplied in
+  the same database after it has succeeded.
 
 ## Current migrations
 
@@ -55,5 +54,5 @@ through the official Supabase Auth Admin API flow.
 The Gmail connection validation is documented in
 `supabase/tests/gmail_connections_rls_validation.sql`. It requires two
 disposable Auth users with existing profiles, the profile migration, and the
-Gmail connection migration applied once in a disposable database. It has not
-been executed yet.
+Gmail connection migration applied once in a disposable database. It has passed
+in disposable staging.

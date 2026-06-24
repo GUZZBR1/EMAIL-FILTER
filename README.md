@@ -4,8 +4,10 @@
 O Email Filter é uma aplicação web projetada para conectar múltiplas contas do Gmail e facilitar a localização de e-mails e anexos por meio de um sistema de filtros visuais avançados, eliminando a necessidade de dominar a sintaxe de busca do Gmail e oferecendo uma visão consolidada de arquivos.
 
 ## 📍 Estado Atual
-**Fundação do monorepo, backend e frontend mínimos inicializados; bases locais
-de identidade e conexões Gmail PostgreSQL/Supabase versionadas.**
+**Fundação do monorepo, backend e frontend mínimos inicializados; bases de
+identidade e conexões Gmail PostgreSQL/Supabase versionadas e validadas em
+staging descartável; contratos de configuração OAuth Google/Gmail iniciados no
+backend sem fluxo OAuth real e sem persistência de tokens.**
 A visão do produto, requisitos funcionais, não-funcionais e a arquitetura de alto nível foram definidos e consolidados.
 
 A migration de `public.profiles`, criação automática de perfil, RLS e
@@ -16,7 +18,9 @@ real via Supabase Auth.
 A base de `public.gmail_connections` está versionada localmente para múltiplas
 contas Gmail por perfil, com RLS, privilégios mínimos, estados de conexão,
 limite técnico inicial de cinco conexões ativas e sem armazenamento de tokens
-OAuth nesta etapa. Essa nova migration ainda não foi aplicada remotamente.
+OAuth nesta etapa. Ela foi validada em projeto Supabase descartável junto com
+`public.profiles`, incluindo RLS, grants/revokes, triggers, limite de conexões,
+cascade e isolamento entre usuários.
 
 ## 📂 Estrutura do Monorepo
 O projeto utiliza uma estrutura modular para separar as responsabilidades de execução e contratos:
@@ -58,7 +62,7 @@ O plano de implementação técnica está disponível em:
 1. Planejamento técnico detalhado (Design de API e Banco de Dados).
 2. Implementação da fundação do monorepo (Concluído).
 3. Inicialização do backend mínimo (Concluído).
-4. Validação em staging da base de conexões Gmail.
+4. Validação em staging da base de conexões Gmail. (Concluído)
 5. Implementação futura do fluxo OAuth Gmail e camada segura de tokens.
 6. Desenvolvimento do motor de busca e galeria de anexos.
 7. Estratégia de testes e deploy.

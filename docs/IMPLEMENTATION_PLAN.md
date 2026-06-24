@@ -94,8 +94,13 @@ Email-Filter/
 **Objective**: Enable secure linking of one or more Gmail accounts.
 **Order**: Prerequisite for any search functionality.
 **Deliverables**: OAuth flow, token encryption, account management.
-- **T3.1**: Implement Google OAuth 2.0 authorization flow (Frontend $\rightarrow$ Backend). [Codex]
-- **T3.2**: Create `Gmail Connection` table and state machine (`connected`, `revoked`, etc). [Codex] (Schema and RLS versioned locally; runtime validation pending.)
+- **T3.1a**: Define Google/Gmail OAuth configuration, scopes, redirect
+  validation, state strategy, and typed backend contracts without Google calls
+  or token persistence. [Codex] (Implemented.)
+- **T3.1b**: Implement Google OAuth 2.0 authorization flow
+  (Frontend $\rightarrow$ Backend), including durable `state` persistence and
+  callback handling. [Codex]
+- **T3.2**: Create `Gmail Connection` table and state machine (`connected`, `revoked`, etc). [Codex] (Schema, RLS, and runtime behavior validated in disposable staging.)
 - **T3.3**: Implement symmetric encryption for `access_token` and `refresh_token`. [Codex]
 - **T3.4**: Implement token refresh logic and automatic renewal. [Codex]
 - **T3.5**: Create endpoint to link/unlink Gmail accounts. [Gemma]
