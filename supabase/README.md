@@ -5,8 +5,9 @@
 - **Out of Scope**: Application business logic.
 - **Status**: Initial identity foundation and Gmail connection schema
   implemented and validated in a disposable development/staging Supabase
-  project. Do not reapply a migration in a database where it has already
-  succeeded.
+  project. Google OAuth state persistence is versioned locally and pending
+  independent review/runtime application. Do not reapply a migration in a
+  database where it has already succeeded.
 
 ## Identity foundation
 
@@ -140,3 +141,26 @@ The Gmail connection validation script is
 It has passed in a disposable staging project for schema, RLS, grants and
 revokes, triggers, active connection limits, cascade behavior, and isolation
 between users.
+
+## Google OAuth state foundation
+
+`public.google_oauth_states` stores one durable OAuth `state` record per Gmail
+authorization attempt. The backend generates the raw state and persists only a
+SHA-256 hex hash. Rows are linked to `public.profiles(id)` with
+`ON DELETE CASCADE`, bound to a validated frontend return URL, expire after a
+short backend-configured TTL, and are marked with `consumed_at` exactly once by
+an atomic update.
+
+The table intentionally stores no raw state, OAuth code, access token, refresh
+token, ID token, provider payload, PKCE verifier, or nonce. If PKCE verifier or
+nonce persistence is required in the next OAuth flow step, add it deliberately
+with the concrete validation flow and encryption/key-management decision.
+
+RLS is enabled without client policies. `anon` and `authenticated` receive no
+table privileges, so the browser Data API cannot read or mutate OAuth states.
+Server-side backend code owns creation, consumption, and cleanup.
+
+The validation script is
+[`tests/google_oauth_states_validation.sql`](tests/google_oauth_states_validation.sql).
+It is pending execution until the migration is reviewed and applied once in a
+disposable database.

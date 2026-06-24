@@ -159,3 +159,54 @@ Do not put connection strings, service keys, or passwords in repository files.
 The script ends with `ROLLBACK`, so all Gmail connection fixtures and the
 profile cascade check are reverted. Remove the two disposable Auth users
 manually after success or failure; their profiles are removed by cascade.
+
+## `google_oauth_states_validation.sql`
+
+Validates the `public.google_oauth_states` migration after the profile and
+OAuth state migrations have been applied once. Do not run either migration
+again in the same database.
+
+Required fixtures:
+
+1. Apply `supabase/migrations/20260623135819_create_profiles.sql`.
+2. Apply `supabase/migrations/20260624120000_create_google_oauth_states.sql`.
+3. Create two disposable Supabase Auth users through an official Auth flow.
+   Their `public.profiles` rows must exist before executing the script.
+
+The script contains placeholder UUIDs for both Auth users. Replace those
+placeholder values only in your local execution copy or SQL Editor paste. Do
+not commit real Auth user IDs.
+
+The script validates table shape, PK/FK/cascade, unique SHA-256 state hashes,
+rejection of blank state hashes and invalid expiration, RLS, absence of grants
+for `anon` and `authenticated`, administrative insert, atomic consume,
+replay rejection, expired state rejection, cleanup, and rollback.
+
+### Mode 1: `psql`
+
+Run the whole file in one administrative session after replacing the two
+placeholder UUIDs in a local, untracked execution copy:
+
+```sh
+cp supabase/tests/google_oauth_states_validation.sql \
+  /tmp/google_oauth_states_validation.sql
+# Edit only /tmp/google_oauth_states_validation.sql to replace placeholders.
+psql -v ON_ERROR_STOP=1 -f /tmp/google_oauth_states_validation.sql
+```
+
+Do not put connection strings, service keys, state values, or passwords in
+repository files.
+
+### Mode 2: Supabase SQL Editor
+
+1. Confirm that the selected project is disposable and not production.
+2. Confirm that the required migrations have already succeeded once.
+3. Open the SQL Editor.
+4. Paste the complete `google_oauth_states_validation.sql` file.
+5. Replace the two placeholder UUIDs in the pasted SQL with the disposable
+   Auth user IDs.
+6. Execute the pasted SQL once as a single manual operation.
+
+The script ends with `ROLLBACK`, so all OAuth state fixtures and the profile
+cascade check are reverted. Remove the two disposable Auth users manually after
+success or failure; their profiles are removed by cascade.

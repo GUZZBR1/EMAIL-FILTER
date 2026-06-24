@@ -97,7 +97,11 @@ Email-Filter/
 - **T3.1a**: Define Google/Gmail OAuth configuration, scopes, redirect
   validation, state strategy, and typed backend contracts without Google calls
   or token persistence. [Codex] (Implemented.)
-- **T3.1b**: Implement Google OAuth 2.0 authorization flow
+- **T3.1b**: Add durable Google OAuth `state` storage with hashed state,
+  profile/return binding, short expiration, atomic consumption, RLS, cleanup,
+  backend repository contracts, and SQL validation. [Codex] (Implemented; pending
+  independent review and runtime application.)
+- **T3.1c**: Implement Google OAuth 2.0 authorization flow
   (Frontend $\rightarrow$ Backend), including durable `state` persistence and
   callback handling. [Codex]
 - **T3.2**: Create `Gmail Connection` table and state machine (`connected`, `revoked`, etc). [Codex] (Schema, RLS, and runtime behavior validated in disposable staging.)

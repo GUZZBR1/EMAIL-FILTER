@@ -4,8 +4,9 @@
 - **Planned Tech**: SQL.
 - **Status**: The initial profile/RLS migration and Gmail connection migration
   are versioned locally and have been applied and validated in a disposable
-  development/staging Supabase project. A migration must not be reapplied in
-  the same database after it has succeeded.
+  development/staging Supabase project. The Google OAuth state migration is
+  versioned locally and pending independent review/runtime validation. A
+  migration must not be reapplied in the same database after it has succeeded.
 
 ## Current migrations
 
@@ -19,6 +20,12 @@
   connection limit trigger with `app.gmail_connections_active_limit` fallback
   to 5, automatic `updated_at`, read-only RLS for owning authenticated users,
   and least-privilege grants. It intentionally does not create token columns.
+- `20260624120000_create_google_oauth_states.sql`: creates
+  `public.google_oauth_states` for durable Google OAuth `state` storage. It
+  stores only a unique SHA-256 state hash, the owning profile, the validated
+  return URL, timestamps for creation/expiration/consumption, cleanup indexes,
+  RLS, and no client grants. It intentionally does not store raw state, OAuth
+  codes, PKCE verifiers, nonce values, or token columns.
 
 Migrations in this directory are production schema changes. Manual validation
 scripts belong in `supabase/tests/` and must not be moved into this directory.
@@ -56,3 +63,9 @@ The Gmail connection validation is documented in
 disposable Auth users with existing profiles, the profile migration, and the
 Gmail connection migration applied once in a disposable database. It has passed
 in disposable staging.
+
+The Google OAuth state validation is documented in
+`supabase/tests/google_oauth_states_validation.sql`. It requires two
+disposable Auth users with existing profiles, the profile migration, and the
+Google OAuth state migration applied once in a disposable database. It has not
+been executed yet.

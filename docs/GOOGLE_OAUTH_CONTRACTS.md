@@ -25,6 +25,7 @@ The backend accepts these optional settings:
 - `GOOGLE_OAUTH_SUCCESS_REDIRECT_URL`
 - `GOOGLE_OAUTH_ERROR_REDIRECT_URL`
 - `GOOGLE_OAUTH_FRONTEND_REDIRECT_ALLOWLIST`
+- `GOOGLE_OAUTH_STATE_TTL_SECONDS`
 - `GMAIL_OAUTH_SCOPES`
 
 OAuth is available only when the explicit flag is enabled and client ID,
@@ -34,6 +35,9 @@ endpoints such as health continue to work without OAuth configuration.
 
 The client secret uses Pydantic `SecretStr` and must not be logged, returned by
 an API response, or included in public contracts.
+
+OAuth state lifetime defaults to 600 seconds. Configuration must remain between
+300 and 900 seconds.
 
 ## Scopes
 
@@ -74,10 +78,40 @@ The `state` parameter must be:
 - stored server-side or represented by a signed format compatible with
   multiple backend instances.
 
-This stage defines `GoogleOAuthStateContract` only. It intentionally does not
-create an in-memory state store because that would fail in multi-instance
-deployments. If the next implementation chooses server-side persistence, it
-should add a dedicated migration for OAuth state.
+The backend generates 32 random bytes with the standard library `secrets`
+module and sends the raw state only through the OAuth redirect flow. The
+database persists only a SHA-256 hex hash of that value in
+`public.google_oauth_states`; the raw state is not stored and the result object
+redacts it from `repr`.
+
+`public.google_oauth_states` binds each state to `public.profiles(id)` and to
+one already-allowed return URL. The FK uses `ON DELETE CASCADE` so deleting a
+profile removes unused or consumed state rows for that profile. This matches
+the existing profile-owned Gmail connection behavior.
+
+State consumption is atomic:
+
+```sql
+update public.google_oauth_states
+   set consumed_at = now()
+ where state_hash = :state_hash
+   and profile_id = :profile_id
+   and return_url = :return_url
+   and consumed_at is null
+   and expires_at > now()
+returning profile_id, return_url, consumed_at;
+```
+
+The second consume attempt returns no row and is treated as replay. Expired,
+missing, already consumed, profile-mismatched, and return-mismatched states map
+to internal errors; a future public callback should collapse those details into
+a generic user-facing failure.
+
+RLS is enabled and no policies or table privileges are granted to `anon` or
+`authenticated`. Server-side backend access must use a privileged database path,
+not the browser Data API. Cleanup deletes expired rows and old consumed rows;
+future worker or maintenance code should call it periodically. No cron or
+remote scheduler is configured in this stage.
 
 ## Internal contracts
 
@@ -86,6 +120,7 @@ The backend now has typed models for:
 - an authenticated profile resolved before Gmail authorization;
 - an OAuth start request;
 - a durable state contract;
+- repository contracts for creating, consuming, and cleaning OAuth state;
 - a Google callback that contains either `code` or `error`;
 - a post-exchange connection result with Google subject, e-mail, optional name
   and avatar, granted scopes, and initial connection status.
@@ -104,7 +139,14 @@ This stage does not:
 - encrypt tokens;
 - persist tokens;
 - write to `public.gmail_connections`;
-- add database migrations.
+- implement PKCE verifier storage;
+- persist OAuth nonce values.
 
-The next task should implement durable OAuth `state` persistence and then the
-authorization URL/callback flow.
+PKCE verifier ciphertext and nonce storage are intentionally omitted because
+this step does not yet create the real authorization URL, ID-token validation,
+or callback exchange path. Add those fields only with the concrete flow that
+uses them.
+
+The next task should perform independent review/runtime validation of the state
+migration, then implement the authorization URL and callback flow using the
+durable repository.

@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     GOOGLE_OAUTH_FRONTEND_REDIRECT_ALLOWLIST: tuple[str, ...] = Field(
         default_factory=tuple
     )
+    GOOGLE_OAUTH_STATE_TTL_SECONDS: int = Field(default=600, ge=300, le=900)
     GMAIL_OAUTH_SCOPES: tuple[str, ...] = Field(default=GMAIL_OAUTH_SCOPES)
 
     @field_validator("GOOGLE_OAUTH_CLIENT_ID")

@@ -6,8 +6,9 @@ O Email Filter é uma aplicação web projetada para conectar múltiplas contas 
 ## 📍 Estado Atual
 **Fundação do monorepo, backend e frontend mínimos inicializados; bases de
 identidade e conexões Gmail PostgreSQL/Supabase versionadas e validadas em
-staging descartável; contratos de configuração OAuth Google/Gmail iniciados no
-backend sem fluxo OAuth real e sem persistência de tokens.**
+staging descartável; configuração OAuth Google/Gmail e persistência durável de
+`state` preparadas no backend sem fluxo OAuth real e sem persistência de
+tokens.**
 A visão do produto, requisitos funcionais, não-funcionais e a arquitetura de alto nível foram definidos e consolidados.
 
 A migration de `public.profiles`, criação automática de perfil, RLS e
@@ -63,6 +64,6 @@ O plano de implementação técnica está disponível em:
 2. Implementação da fundação do monorepo (Concluído).
 3. Inicialização do backend mínimo (Concluído).
 4. Validação em staging da base de conexões Gmail. (Concluído)
-5. Implementação futura do fluxo OAuth Gmail e camada segura de tokens.
+5. Revisão e validação da persistência durável de OAuth `state`.
 6. Desenvolvimento do motor de busca e galeria de anexos.
 7. Estratégia de testes e deploy.
