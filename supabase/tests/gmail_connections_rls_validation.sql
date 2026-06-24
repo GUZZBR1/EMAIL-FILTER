@@ -441,6 +441,91 @@ begin
     exception
         when check_violation then null;
     end;
+
+    begin
+        insert into public.gmail_connections (
+            profile_id,
+            google_subject,
+            gmail_email
+        )
+        values (
+            current_setting('validation.profile_a')::uuid,
+            ' validation-google-subject-trim ',
+            'subject-trim@example.invalid'
+        );
+        raise exception 'validation failed: trimmed Google subject insert succeeded';
+    exception
+        when check_violation then null;
+    end;
+
+    begin
+        insert into public.gmail_connections (
+            profile_id,
+            google_subject,
+            gmail_email
+        )
+        values (
+            current_setting('validation.profile_a')::uuid,
+            '',
+            'blank-subject@example.invalid'
+        );
+        raise exception 'validation failed: blank Google subject insert succeeded';
+    exception
+        when check_violation then null;
+    end;
+
+    begin
+        insert into public.gmail_connections (
+            profile_id,
+            google_subject,
+            gmail_email
+        )
+        values (
+            current_setting('validation.profile_a')::uuid,
+            'validation-gmail-email-trim',
+            ' email-trim@example.invalid '
+        );
+        raise exception 'validation failed: trimmed Gmail email insert succeeded';
+    exception
+        when check_violation then null;
+    end;
+
+    begin
+        insert into public.gmail_connections (
+            profile_id,
+            google_subject,
+            gmail_email
+        )
+        values (
+            current_setting('validation.profile_a')::uuid,
+            'validation-gmail-email-blank',
+            ''
+        );
+        raise exception 'validation failed: blank Gmail email insert succeeded';
+    exception
+        when check_violation then null;
+    end;
+
+    begin
+        insert into public.gmail_connections (
+            profile_id,
+            google_subject,
+            gmail_email,
+            granted_scopes
+        )
+        values (
+            current_setting('validation.profile_a')::uuid,
+            'validation-null-scope',
+            'null-scope@example.invalid',
+            array[
+                'https://www.googleapis.com/auth/gmail.readonly',
+                null
+            ]::text[]
+        );
+        raise exception 'validation failed: NULL granted scope insert succeeded';
+    exception
+        when check_violation then null;
+    end;
 end;
 $$;
 
@@ -553,6 +638,97 @@ select pg_temp.assert_true(
     ),
     'active limit must block update activation until an active slot is free'
 );
+
+select set_config('app.gmail_connections_active_limit', '0', true);
+
+do $$
+begin
+    begin
+        insert into public.gmail_connections (
+            profile_id,
+            google_subject,
+            gmail_email,
+            connection_status,
+            last_connected_at
+        )
+        values (
+            current_setting('validation.profile_b')::uuid,
+            'validation-configured-limit-zero',
+            'configured-limit-zero@example.invalid',
+            'connected',
+            now()
+        );
+        raise exception 'validation failed: zero active limit allowed an active connection';
+    exception
+        when check_violation then null;
+    end;
+end;
+$$;
+
+select set_config('app.gmail_connections_active_limit', '2', true);
+
+insert into public.gmail_connections (
+    profile_id,
+    google_subject,
+    gmail_email,
+    connection_status,
+    last_connected_at
+)
+values (
+    current_setting('validation.profile_b')::uuid,
+    'validation-configured-limit-2',
+    'configured-limit-2@example.invalid',
+    'connected',
+    now()
+);
+
+select pg_temp.assert_true(
+    (select count(*) = 2
+     from public.gmail_connections
+     where profile_id = current_setting('validation.profile_b')::uuid
+       and connection_status in ('connected', 'refreshing')),
+    'configured active limit fixture must have two active Gmail connections'
+);
+
+do $$
+begin
+    begin
+        insert into public.gmail_connections (
+            profile_id,
+            google_subject,
+            gmail_email,
+            connection_status,
+            last_connected_at
+        )
+        values (
+            current_setting('validation.profile_b')::uuid,
+            'validation-configured-limit-3',
+            'configured-limit-3@example.invalid',
+            'connected',
+            now()
+        );
+        raise exception 'validation failed: configured active limit allowed a third connection';
+    exception
+        when check_violation then null;
+    end;
+end;
+$$;
+
+do $$
+begin
+    begin
+        update public.gmail_connections
+        set profile_id = current_setting('validation.profile_b')::uuid
+        where profile_id = current_setting('validation.profile_a')::uuid
+          and google_subject = 'validation-google-subject-a-2';
+        raise exception 'validation failed: profile_id move exceeded destination active limit';
+    exception
+        when check_violation then null;
+    end;
+end;
+$$;
+
+select set_config('app.gmail_connections_active_limit', '', true);
 
 insert into public.gmail_connections (
     profile_id,
