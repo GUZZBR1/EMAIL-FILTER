@@ -124,9 +124,13 @@ def hash_oauth_state(raw_state: str) -> str:
 
 
 def calculate_expires_at(now: datetime, ttl_seconds: int) -> datetime:
+    validate_oauth_state_ttl_seconds(ttl_seconds)
+    return now + timedelta(seconds=ttl_seconds)
+
+
+def validate_oauth_state_ttl_seconds(ttl_seconds: int) -> None:
     if ttl_seconds < 300 or ttl_seconds > 900:
         raise ValueError("OAuth state TTL must be between 300 and 900 seconds")
-    return now + timedelta(seconds=ttl_seconds)
 
 
 def validate_oauth_return_url(return_url: str, config: GoogleOAuthConfig) -> str:

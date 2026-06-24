@@ -89,16 +89,21 @@ one already-allowed return URL. The FK uses `ON DELETE CASCADE` so deleting a
 profile removes unused or consumed state rows for that profile. This matches
 the existing profile-owned Gmail connection behavior.
 
+The PostgreSQL adapter uses the database clock for persisted creation,
+expiration, and consumption timestamps. The backend validates the configured
+TTL range, but the final expiration decision during consumption is made with
+`pg_catalog.now()` in PostgreSQL to reduce backend/database clock-skew risk.
+
 State consumption is atomic:
 
 ```sql
 update public.google_oauth_states
-   set consumed_at = now()
+   set consumed_at = pg_catalog.now()
  where state_hash = :state_hash
    and profile_id = :profile_id
    and return_url = :return_url
    and consumed_at is null
-   and expires_at > now()
+   and expires_at > pg_catalog.now()
 returning profile_id, return_url, consumed_at;
 ```
 
@@ -106,6 +111,10 @@ The second consume attempt returns no row and is treated as replay. Expired,
 missing, already consumed, profile-mismatched, and return-mismatched states map
 to internal errors; a future public callback should collapse those details into
 a generic user-facing failure.
+Unexpected persistence failures are wrapped in a sanitized internal
+`OAuthStatePersistenceError` while preserving the original exception as the
+Python cause for backend diagnostics. Public responses must not expose SQL,
+parameters, state hashes, or raw state values.
 
 RLS is enabled and no policies or table privileges are granted to `anon` or
 `authenticated`. Server-side backend access must use a privileged database path,

@@ -83,8 +83,11 @@ cryptographic randomness. Only the raw value is returned to the OAuth redirect
 flow; the database stores only the SHA-256 hex hash. The stored row is bound to
 `public.profiles(id)` and to one allowed frontend return URL, expires after 10
 minutes by default, and is consumed through one atomic
-`UPDATE ... WHERE consumed_at IS NULL AND expires_at > now() ... RETURNING`
-operation to prevent replay and race-prone select-then-update flows.
+`UPDATE ... WHERE consumed_at IS NULL AND expires_at > pg_catalog.now() ...
+RETURNING` operation to prevent replay and race-prone select-then-update
+flows. The adapter uses the PostgreSQL clock for persisted creation,
+expiration, and consumption timestamps; the backend only validates that the
+configured TTL is within the accepted range.
 
 `public.google_oauth_states` has RLS enabled and grants no direct table access
 to `anon` or `authenticated`, so the frontend cannot read or mutate state rows

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -23,12 +26,16 @@ from app.integrations.google.oauth_state import (
     OAuthStateCreated,
     OAuthStateExpired,
     OAuthStateNotFound,
+    OAuthStatePersistenceError,
     OAuthStateRepository,
     OAuthStateStored,
     calculate_expires_at,
     generate_oauth_state,
     hash_oauth_state,
     validate_oauth_return_url,
+)
+from app.integrations.google.repositories.oauth_state_postgres import (
+    PostgresOAuthStateRepository,
 )
 
 
@@ -115,6 +122,47 @@ class FakeOAuthStateRepository:
         return OAuthStateCleanupResult(deleted_count=len(eligible_hashes))
 
 
+class RecordingExecutor:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, object]]] = []
+
+    def fetch_one(
+        self,
+        sql: str,
+        parameters: Mapping[str, object],
+    ) -> Mapping[str, Any] | None:
+        self.calls.append((sql, dict(parameters)))
+        if sql.lstrip().startswith("insert"):
+            return {
+                "profile_id": parameters["profile_id"],
+                "return_url": parameters["return_url"],
+                "expires_at": datetime(2026, 1, 1, 0, 10, tzinfo=UTC),
+            }
+        if sql.lstrip().startswith("update"):
+            return {
+                "profile_id": parameters["profile_id"],
+                "return_url": parameters["return_url"],
+                "consumed_at": datetime(2026, 1, 1, 0, 1, tzinfo=UTC),
+            }
+        return None
+
+    def execute(self, sql: str, parameters: Mapping[str, object]) -> int:
+        self.calls.append((sql, dict(parameters)))
+        return 0
+
+
+class FailingExecutor:
+    def fetch_one(
+        self,
+        sql: str,
+        parameters: Mapping[str, object],
+    ) -> Mapping[str, Any] | None:
+        raise RuntimeError("driver leaked SQL detail")
+
+    def execute(self, sql: str, parameters: Mapping[str, object]) -> int:
+        raise RuntimeError("driver leaked SQL detail")
+
+
 def oauth_config() -> GoogleOAuthConfig:
     return GoogleOAuthConfig(
         client_id="google-client-id.apps.googleusercontent.com",
@@ -149,6 +197,12 @@ def test_raw_state_has_adequate_entropy() -> None:
 
     assert first != second
     assert len(first) >= 43
+
+
+def test_raw_state_is_url_safe() -> None:
+    raw_state = generate_oauth_state()
+
+    assert re.fullmatch(r"[A-Za-z0-9_-]+", raw_state)
 
 
 def test_raw_state_is_not_persisted() -> None:
@@ -303,3 +357,58 @@ def test_cleanup_identifies_eligible_records() -> None:
     assert hash_oauth_state(expired.raw_state) not in repository.records
     assert hash_oauth_state(consumed.raw_state) not in repository.records
     assert hash_oauth_state(retained.raw_state) in repository.records
+
+
+def test_postgres_create_uses_database_clock_and_never_persists_raw_state() -> None:
+    executor = RecordingExecutor()
+    repository = PostgresOAuthStateRepository(executor, oauth_config())
+    profile_id = uuid4()
+
+    created = repository.create(
+        OAuthStateCreate(
+            profile_id=profile_id,
+            return_url=SUCCESS_URL,
+            ttl_seconds=600,
+            now=datetime(2000, 1, 1, tzinfo=UTC),
+        )
+    )
+
+    sql, parameters = executor.calls[0]
+    assert "pg_catalog.now()" in sql
+    assert "ttl_seconds" in parameters
+    assert "created_at" not in parameters
+    assert "expires_at" not in parameters
+    assert created.raw_state not in repr(parameters)
+
+
+def test_postgres_consume_uses_database_clock_for_atomic_expiration() -> None:
+    executor = RecordingExecutor()
+    repository = PostgresOAuthStateRepository(executor, oauth_config())
+
+    repository.consume(
+        "state-" + ("a" * 40),
+        profile_id=uuid4(),
+        return_url=SUCCESS_URL,
+        now=datetime(2000, 1, 1, tzinfo=UTC),
+    )
+
+    sql, parameters = executor.calls[0]
+    assert "set consumed_at = pg_catalog.now()" in sql
+    assert "expires_at > pg_catalog.now()" in sql
+    assert "consumed_at" not in parameters
+
+
+def test_postgres_persistence_errors_are_sanitized() -> None:
+    repository = PostgresOAuthStateRepository(FailingExecutor(), oauth_config())
+
+    with pytest.raises(OAuthStatePersistenceError) as exc_info:
+        repository.create(
+            OAuthStateCreate(
+                profile_id=uuid4(),
+                return_url=SUCCESS_URL,
+                ttl_seconds=600,
+            )
+        )
+
+    assert str(exc_info.value) == "OAuth state persistence operation failed"
+    assert isinstance(exc_info.value.__cause__, RuntimeError)

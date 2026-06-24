@@ -149,7 +149,9 @@ authorization attempt. The backend generates the raw state and persists only a
 SHA-256 hex hash. Rows are linked to `public.profiles(id)` with
 `ON DELETE CASCADE`, bound to a validated frontend return URL, expire after a
 short backend-configured TTL, and are marked with `consumed_at` exactly once by
-an atomic update.
+an atomic update. The PostgreSQL adapter validates the TTL range in backend
+code, then uses the database clock for persisted creation, expiration, and
+consumption decisions.
 
 The table intentionally stores no raw state, OAuth code, access token, refresh
 token, ID token, provider payload, PKCE verifier, or nonce. If PKCE verifier or
